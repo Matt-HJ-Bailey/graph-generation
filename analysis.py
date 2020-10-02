@@ -8,16 +8,19 @@ epoch = 3000
 sample_time = 3
 
 
-def find_nearest_idx(array,value):
-    idx = (np.abs(array-value)).argmin()
+def find_nearest_idx(array, value):
+    idx = (np.abs(array - value)).argmin()
     return idx
 
+
 # for baseline model
-for num_layers in range(4,5):
+for num_layers in range(4, 5):
     # give file name and figure name
     fname_real = args.graph_save_path + args.fname_real + str(0)
-    fname_pred = args.graph_save_path + args.fname_pred + str(epoch) +'_'+str(sample_time)
-    figname = args.figure_save_path + args.fname + str(epoch) +'_'+str(sample_time)
+    fname_pred = (
+        args.graph_save_path + args.fname_pred + str(epoch) + "_" + str(sample_time)
+    )
+    figname = args.figure_save_path + args.fname + str(epoch) + "_" + str(sample_time)
 
     # fname_real = args.graph_save_path + args.note + '_' + args.graph_type + '_' + str(args.graph_node_num) + '_' + \
     #              str(epoch) + '_real_' + str(True) + '_' + str(num_layers)
@@ -28,17 +31,19 @@ for num_layers in range(4,5):
     print(fname_real)
     print(fname_pred)
 
-
     # load data
-    graph_real_list = load_graph_list(fname_real + '.dat')
+    graph_real_list = load_graph_list(fname_real + ".dat")
     shuffle(graph_real_list)
-    graph_pred_list_raw = load_graph_list(fname_pred + '.dat')
-    graph_real_len_list = np.array([len(graph_real_list[i]) for i in range(len(graph_real_list))])
-    graph_pred_len_list_raw = np.array([len(graph_pred_list_raw[i]) for i in range(len(graph_pred_list_raw))])
+    graph_pred_list_raw = load_graph_list(fname_pred + ".dat")
+    graph_real_len_list = np.array(
+        [len(graph_real_list[i]) for i in range(len(graph_real_list))]
+    )
+    graph_pred_len_list_raw = np.array(
+        [len(graph_pred_list_raw[i]) for i in range(len(graph_pred_list_raw))]
+    )
 
     graph_pred_list = graph_pred_list_raw
     graph_pred_len_list = graph_pred_len_list_raw
-
 
     # # select samples
     # graph_pred_list = []
@@ -54,8 +59,6 @@ for num_layers in range(4,5):
     #         break
     # graph_pred_len_list = np.array(graph_pred_len_list)
 
-
-
     # # select pred data within certain range
     # len_min = np.amin(graph_real_len_list)
     # len_max = np.amax(graph_real_len_list)
@@ -63,8 +66,6 @@ for num_layers in range(4,5):
     # # print(pred_index[0])
     # graph_pred_list = [graph_pred_list[i] for i in pred_index[0]]
     # graph_pred_len_list = graph_pred_len_list[pred_index[0]]
-
-
 
     # real_order = np.argsort(graph_real_len_list)
     # pred_order = np.argsort(graph_pred_len_list)
@@ -77,11 +78,18 @@ for num_layers in range(4,5):
 
     # shuffle(graph_real_list)
     # shuffle(graph_pred_list)
-    print('real average nodes', sum([graph_real_list[i].number_of_nodes() for i in range(len(graph_real_list))])/len(graph_real_list))
-    print('pred average nodes', sum([graph_pred_list[i].number_of_nodes() for i in range(len(graph_pred_list))])/len(graph_pred_list))
-    print('num of real graphs', len(graph_real_list))
-    print('num of pred graphs', len(graph_pred_list))
-
+    print(
+        "real average nodes",
+        sum([graph_real_list[i].number_of_nodes() for i in range(len(graph_real_list))])
+        / len(graph_real_list),
+    )
+    print(
+        "pred average nodes",
+        sum([graph_pred_list[i].number_of_nodes() for i in range(len(graph_pred_list))])
+        / len(graph_pred_list),
+    )
+    print("num of real graphs", len(graph_real_list))
+    print("num of pred graphs", len(graph_pred_list))
 
     # # draw all graphs
     # for iter in range(8):
@@ -100,7 +108,7 @@ for num_layers in range(4,5):
 
     # draw all graphs
     for iter in range(8):
-        print('iter', iter)
+        print("iter", iter)
         graph_list = []
         for i in range(8):
             index = 32 * iter + i
@@ -109,13 +117,15 @@ for num_layers in range(4,5):
             # graph_list.append(graph_real_list[index])
             graph_list.append(graph_pred_list[index])
             # print('real', graph_real_list[index].number_of_nodes())
-            print('pred', graph_pred_list[index].number_of_nodes())
+            print("pred", graph_pred_list[index].number_of_nodes())
 
-        draw_graph_list(graph_list, row=4, col=4, fname=figname + '_' + str(iter)+'_pred')
+        draw_graph_list(
+            graph_list, row=4, col=4, fname=figname + "_" + str(iter) + "_pred"
+        )
 
     # draw all graphs
     for iter in range(8):
-        print('iter', iter)
+        print("iter", iter)
         graph_list = []
         for i in range(8):
             index = 16 * iter + i
@@ -123,10 +133,12 @@ for num_layers in range(4,5):
             # graph_pred_list[index].remove_nodes_from(list(nx.isolates(graph_pred_list[index])))
             graph_list.append(graph_real_list[index])
             # graph_list.append(graph_pred_list[index])
-            print('real', graph_real_list[index].number_of_nodes())
+            print("real", graph_real_list[index].number_of_nodes())
             # print('pred', graph_pred_list[index].number_of_nodes())
 
-        draw_graph_list(graph_list, row=4, col=4, fname=figname + '_' + str(iter)+'_real')
+        draw_graph_list(
+            graph_list, row=4, col=4, fname=figname + "_" + str(iter) + "_real"
+        )
 
 #
 # # for new model
