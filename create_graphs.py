@@ -1,23 +1,24 @@
+import random
+
 import networkx as nx
 import numpy as np
 
-from utils import *
-from data import *
+import os
+import pickle as pkl
 
+from utils import caveman_special, n_community, perturb_new, Graph_load_batch, Graph_load
 
+def generate_ladder_graphs(min_size:int = 100, max_size:int = 201):
+    return [nx.ladder_graph(i) for i in range(min_size, max_size)]
+   
 def create(args):
-    ### load datasets
-    graphs = []
+
     # synthetic graphs
     if args.graph_type == "ladder":
-        graphs = []
-        for i in range(100, 201):
-            graphs.append(nx.ladder_graph(i))
+        graphs = generate_ladder_graphs(100, 201)
         args.max_prev_node = 10
     elif args.graph_type == "ladder_small":
-        graphs = []
-        for i in range(2, 11):
-            graphs.append(nx.ladder_graph(i))
+        graphs = generate_ladder_graphs(2, 11)
         args.max_prev_node = 10
     elif args.graph_type == "tree":
         graphs = []
@@ -26,11 +27,6 @@ def create(args):
                 graphs.append(nx.balanced_tree(i, j))
         args.max_prev_node = 256
     elif args.graph_type == "caveman":
-        # graphs = []
-        # for i in range(5,10):
-        #     for j in range(5,25):
-        #         for k in range(5):
-        #             graphs.append(nx.relaxed_caveman_graph(i, j, p=0.1))
         graphs = []
         for i in range(2, 3):
             for j in range(30, 81):
@@ -38,11 +34,6 @@ def create(args):
                     graphs.append(caveman_special(i, j, p_edge=0.3))
         args.max_prev_node = 100
     elif args.graph_type == "caveman_small":
-        # graphs = []
-        # for i in range(2,5):
-        #     for j in range(2,6):
-        #         for k in range(10):
-        #             graphs.append(nx.relaxed_caveman_graph(i, j, p=0.1))
         graphs = []
         for i in range(2, 3):
             for j in range(6, 11):
@@ -50,11 +41,6 @@ def create(args):
                     graphs.append(caveman_special(i, j, p_edge=0.8))  # default 0.8
         args.max_prev_node = 20
     elif args.graph_type == "caveman_small_single":
-        # graphs = []
-        # for i in range(2,5):
-        #     for j in range(2,6):
-        #         for k in range(10):
-        #             graphs.append(nx.relaxed_caveman_graph(i, j, p=0.1))
         graphs = []
         for i in range(2, 3):
             for j in range(8, 9):
@@ -65,7 +51,6 @@ def create(args):
         num_communities = int(args.graph_type[-1])
         print("Creating dataset with ", num_communities, " communities")
         c_sizes = np.random.choice([12, 13, 14, 15, 16, 17], num_communities)
-        # c_sizes = [15] * num_communities
         for k in range(3000):
             graphs.append(n_community(c_sizes, p_inter=0.01))
         args.max_prev_node = 80
@@ -153,8 +138,41 @@ def create(args):
             G_ego = nx.ego_graph(G, i, radius=1)
             if (G_ego.number_of_nodes() >= 4) and (G_ego.number_of_nodes() <= 20):
                 graphs.append(G_ego)
-        shuffle(graphs)
+        random.shuffle(graphs)
         graphs = graphs[0:200]
         args.max_prev_node = 15
-
+    elif args.graph_type == "collagen":
+        graphs = []
+        for fname in os.listdir(os.path.join("./", "dataset", "Collagen")):
+            base, ext = os.path.splitext(fname)
+            print(fname, base, ext)
+            if ext != ".pkl":
+                continue
+            with open(os.path.join("./", "dataset", "Collagen", fname), "rb") as fi:
+                graphs.append(pkl.load(fi))
+        args.max_num_node = 800
+        args.max_prev_node = 8
+    elif args.graph_type == "edge_graphs":
+        graphs = []
+        for fname in os.listdir(os.path.join("./", "dataset", "edge_graphs")):
+            base, ext = os.path.splitext(fname)
+            print(fname, base, ext)
+            if ext != ".pkl":
+                continue
+            with open(os.path.join("./", "dataset", "edge_graphs", fname), "rb") as fi:
+                graphs.append(pkl.load(fi))
+        args.max_num_node = max(len(graph) for graph in graphs)
+        args.max_prev_node = 8
+    elif args.graph_type == "ring_graphs":
+        graphs = []
+        for fname in os.listdir(os.path.join("./", "dataset", "ring_graphs")):
+            base, ext = os.path.splitext(fname)
+            print(fname, base, ext)
+            if ext != ".pkl":
+                continue
+            with open(os.path.join("./", "dataset", "ring_graphs", fname), "rb") as fi:
+                graphs.append(pkl.load(fi))
+        args.max_num_node = max(len(graph) for graph in graphs)
+        args.max_prev_node = 20
+    random.shuffle(graphs)
     return graphs

@@ -1,31 +1,20 @@
-import networkx as nx
+
 import numpy as np
 import torch
-import torch.nn as nn
-import torch.nn.init as init
 from torch.autograd import Variable
-import matplotlib.pyplot as plt
 import torch.nn.functional as F
 from torch import optim
 from torch.optim.lr_scheduler import MultiStepLR
-from sklearn.decomposition import PCA
-import logging
 from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
-from time import gmtime, strftime
-from sklearn.metrics import roc_curve
-from sklearn.metrics import roc_auc_score
-from sklearn.metrics import average_precision_score
-from random import shuffle
-import pickle
-from tensorboard_logger import configure, log_value
-import scipy.misc
+from tensorboard_logger import log_value
 import time as tm
 
-from utils import *
-from model import *
-from data import *
-from args import Args
-import create_graphs
+import random
+
+from utils import (get_graph, save_graph_list, draw_graph)
+from model import (binary_cross_entropy_weight, sample_sigmoid,
+                   sample_sigmoid_supervised, sample_sigmoid_supervised_simple)
+from data import (decode_adj, )
 
 
 def train_vae_epoch(
@@ -99,8 +88,8 @@ def train_vae_epoch(
                 "Epoch: {}/{}, train bce loss: {:.6f}, train kl loss: {:.6f}, graph type: {}, num_layer: {}, hidden: {}".format(
                     epoch,
                     args.epochs,
-                    loss_bce.data[0],
-                    loss_kl.data[0],
+                    loss_bce.item(),
+                    loss_kl.item(),
                     args.graph_type,
                     args.num_layers,
                     args.hidden_size_rnn,
@@ -124,12 +113,12 @@ def train_vae_epoch(
         # logging
         log_value(
             "bce_loss_" + args.fname,
-            loss_bce.data[0],
+            loss_bce.item(),
             epoch * args.batch_ratio + batch_idx,
         )
         log_value(
             "kl_loss_" + args.fname,
-            loss_kl.data[0],
+            loss_kl.item(),
             epoch * args.batch_ratio + batch_idx,
         )
         log_value(
@@ -151,7 +140,7 @@ def train_vae_epoch(
             "z_sgm_max_" + args.fname, z_sgm_max, epoch * args.batch_ratio + batch_idx
         )
 
-        loss_sum += loss.data[0]
+        loss_sum += loss.item()
     return loss_sum / (batch_idx + 1)
 
 
@@ -300,7 +289,7 @@ def train_mlp_epoch(
                 "Epoch: {}/{}, train loss: {:.6f}, graph type: {}, num_layer: {}, hidden: {}".format(
                     epoch,
                     args.epochs,
-                    loss.data[0],
+                    loss.item(),
                     args.graph_type,
                     args.num_layers,
                     args.hidden_size_rnn,
@@ -309,10 +298,10 @@ def train_mlp_epoch(
 
         # logging
         log_value(
-            "loss_" + args.fname, loss.data[0], epoch * args.batch_ratio + batch_idx
+            "loss_" + args.fname, loss.item(), epoch * args.batch_ratio + batch_idx
         )
 
-        loss_sum += loss.data[0]
+        loss_sum += loss.item()
     return loss_sum / (batch_idx + 1)
 
 
@@ -499,7 +488,7 @@ def train_mlp_forward_epoch(epoch, args, rnn, output, data_loader):
                 "Epoch: {}/{}, train loss: {:.6f}, graph type: {}, num_layer: {}, hidden: {}".format(
                     epoch,
                     args.epochs,
-                    loss.data[0],
+                    loss.item(),
                     args.graph_type,
                     args.num_layers,
                     args.hidden_size_rnn,
@@ -508,50 +497,11 @@ def train_mlp_forward_epoch(epoch, args, rnn, output, data_loader):
 
         # logging
         log_value(
-            "loss_" + args.fname, loss.data[0], epoch * args.batch_ratio + batch_idx
+            "loss_" + args.fname, loss.item(), epoch * args.batch_ratio + batch_idx
         )
 
-        loss_sum += loss.data[0]
+        loss_sum += loss.item()
     return loss_sum / (batch_idx + 1)
-
-
-## too complicated, deprecated
-# def test_mlp_partial_bfs_epoch(epoch, args, rnn, output, data_loader, save_histogram=False,sample_time=1):
-#     rnn.eval()
-#     output.eval()
-#     G_pred_list = []
-#     for batch_idx, data in enumerate(data_loader):
-#         x = data['x'].float()
-#         y = data['y'].float()
-#         y_len = data['len']
-#         test_batch_size = x.size(0)
-#         rnn.hidden = rnn.init_hidden(test_batch_size)
-#         # generate graphs
-#         max_num_node = int(args.max_num_node)
-#         y_pred = Variable(torch.zeros(test_batch_size, max_num_node, args.max_prev_node)).cuda() # normalized prediction score
-#         y_pred_long = Variable(torch.zeros(test_batch_size, max_num_node, args.max_prev_node)).cuda() # discrete prediction
-#         x_step = Variable(torch.ones(test_batch_size,1,args.max_prev_node)).cuda()
-#         for i in range(max_num_node):
-#             # 1 back up hidden state
-#             hidden_prev = Variable(rnn.hidden.data).cuda()
-#             h = rnn(x_step)
-#             y_pred_step = output(h)
-#             y_pred[:, i:i + 1, :] = F.sigmoid(y_pred_step)
-#             x_step = sample_sigmoid_supervised(y_pred_step, y[:,i:i+1,:].cuda(), current=i, y_len=y_len, sample_time=sample_time)
-#             y_pred_long[:, i:i + 1, :] = x_step
-#
-#             rnn.hidden = Variable(rnn.hidden.data).cuda()
-#
-#             print('finish node', i)
-#         y_pred_data = y_pred.data
-#         y_pred_long_data = y_pred_long.data.long()
-#
-#         # save graphs as pickle
-#         for i in range(test_batch_size):
-#             adj_pred = decode_adj(y_pred_long_data[i].cpu().numpy())
-#             G_pred = get_graph(adj_pred) # get a graph from zero-padded adj
-#             G_pred_list.append(G_pred)
-#     return G_pred_list
 
 
 def train_rnn_epoch(
@@ -648,27 +598,22 @@ def train_rnn_epoch(
         optimizer_rnn.step()
         scheduler_output.step()
         scheduler_rnn.step()
-
+        print(
+            f"Epoch: {epoch}/{args.epochs}, batch{ batch_idx},  train loss: {loss.item():.6f}, graph type: {args.graph_type}, num_layer: {args.num_layers}, hidden: {args.hidden_size_rnn}"
+        )
         if (
             epoch % args.epochs_log == 0 and batch_idx == 0
         ):  # only output first batch's statistics
             print(
-                "Epoch: {}/{}, train loss: {:.6f}, graph type: {}, num_layer: {}, hidden: {}".format(
-                    epoch,
-                    args.epochs,
-                    loss.data[0],
-                    args.graph_type,
-                    args.num_layers,
-                    args.hidden_size_rnn,
-                )
+                f"Epoch: {epoch}/{args.epochs}, train loss: {loss.item():.6f}, graph type: {args.graph_type}, num_layer: {args.num_layers}, hidden: {args.hidden_size_rnn}"
             )
 
         # logging
         log_value(
-            "loss_" + args.fname, loss.data[0], epoch * args.batch_ratio + batch_idx
+            f"loss_{args.fname}", loss.item(), epoch * args.batch_ratio + batch_idx
         )
         feature_dim = y.size(1) * y.size(2)
-        loss_sum += loss.data[0] * feature_dim
+        loss_sum += loss.item() * feature_dim
     return loss_sum / (batch_idx + 1)
 
 
@@ -794,27 +739,25 @@ def train_rnn_forward_epoch(epoch, args, rnn, output, data_loader):
         # use cross entropy loss
         loss = binary_cross_entropy_weight(y_pred, output_y)
 
-        if (
-            epoch % args.epochs_log == 0 and batch_idx == 0
-        ):  # only output first batch's statistics
-            print(
-                "Epoch: {}/{}, train loss: {:.6f}, graph type: {}, num_layer: {}, hidden: {}".format(
-                    epoch,
-                    args.epochs,
-                    loss.data[0],
-                    args.graph_type,
-                    args.num_layers,
-                    args.hidden_size_rnn,
-                )
+        print(
+            "Epoch: {}/{}, batch: {}, train loss: {:.6f}, graph type: {}, num_layer: {}, hidden: {}".format(
+                epoch,
+                args.epochs,
+                batch_idx,
+                loss.item(),
+                args.graph_type,
+                args.num_layers,
+                args.hidden_size_rnn,
             )
+        )
 
         # logging
         log_value(
-            "loss_" + args.fname, loss.data[0], epoch * args.batch_ratio + batch_idx
+            "loss_" + args.fname, loss.item(), epoch * args.batch_ratio + batch_idx
         )
         # print(y_pred.size())
         feature_dim = y_pred.size(0) * y_pred.size(1)
-        loss_sum += loss.data[0] * feature_dim / y.size(0)
+        loss_sum += loss.item() * feature_dim / y.size(0)
     return loss_sum / (batch_idx + 1)
 
 
@@ -895,6 +838,7 @@ def train(args, dataset_train, rnn, output):
             )
         time_end = tm.time()
         time_all[epoch - 1] = time_end - time_start
+
         # test
         if epoch % args.epochs_test == 0 and epoch >= args.epochs_test_start:
             for sample_time in range(1, 4):
@@ -937,6 +881,7 @@ def train(args, dataset_train, rnn, output):
                     + ".dat"
                 )
                 save_graph_list(G_pred, fname)
+                draw_graph(random.choice(G_pred), prefix=f"collagen-{epoch}")
                 if "GraphRNN_RNN" in args.note:
                     break
             print("test done, graphs saved")

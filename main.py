@@ -1,9 +1,44 @@
-from train import *
+import os
+from datetime import datetime
+import shutil
+import random
+
+
+import torch
+import numpy as np
+from tensorboard_logger import configure
+
+from args import Args
+import create_graphs
+from utils import save_graph_list
+from data import (
+    Graph_sequence_sampler_pytorch,
+    Graph_sequence_sampler_pytorch_canonical,
+    Graph_sequence_sampler_pytorch_nobfs,
+)
+from model import (GRU_plain, 
+                   MLP_plain,
+                   MLP_VAE_conditional_plain)
+from train import train
+
+def remove_edges(graphs_train):
+    p = 0.5
+    for graph in graphs_train:
+        for node in list(graph.nodes()):
+            # print('node',node)
+            if np.random.rand() > p:
+                graph.remove_node(node)
+    for edge in list(graph.edges()):
+        # print('edge',edge)
+        if np.random.rand() > p:
+            graph.remove_edge(edge[0], edge[1])
+    return graphs_train
+
 
 if __name__ == "__main__":
     # All necessary arguments are defined in args.py
     args = Args()
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(args.cuda)
+    # os.environ["CUDA_VISIBLE_DEVICES"] = str(args.cuda)
     print("CUDA", args.cuda)
     print("File name prefix", args.fname)
     # check if necessary directories exist
@@ -20,18 +55,18 @@ if __name__ == "__main__":
     if not os.path.isdir(args.nll_save_path):
         os.makedirs(args.nll_save_path)
 
-    time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
+    time = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
     # logging.basicConfig(filename='logs/train' + time + '.log', level=logging.DEBUG)
     if args.clean_tensorboard:
         if os.path.isdir("tensorboard"):
             shutil.rmtree("tensorboard")
-    configure("tensorboard/run" + time, flush_secs=5)
+    configure(f"tensorboard/run-{time}", flush_secs=5)
 
     graphs = create_graphs.create(args)
 
     # split datasets
     random.seed(123)
-    shuffle(graphs)
+    random.shuffle(graphs)
     graphs_len = len(graphs)
     graphs_test = graphs[int(0.8 * graphs_len) :]
     graphs_train = graphs[0 : int(0.8 * graphs_len)]
@@ -73,24 +108,15 @@ if __name__ == "__main__":
 
     # save ground truth graphs
     ## To get train and test set, after loading you need to manually slice
-    save_graph_list(graphs, args.graph_save_path + args.fname_train + "0.dat")
-    save_graph_list(graphs, args.graph_save_path + args.fname_test + "0.dat")
+    save_graph_list(graphs, os.path.join(args.graph_save_path,args.fname_train + "0.dat"))
+    save_graph_list(graphs, os.path.join(args.graph_save_path,args.fname_test + "0.dat"))
     print(
         "train and test graphs saved at: ",
-        args.graph_save_path + args.fname_test + "0.dat",
+        os.path.join(args.graph_save_path, args.fname_test + "0.dat"),
     )
 
     ### comment when normal training, for graph completion only
-    # p = 0.5
-    # for graph in graphs_train:
-    #     for node in list(graph.nodes()):
-    #         # print('node',node)
-    #         if np.random.rand()>p:
-    #             graph.remove_node(node)
-    # for edge in list(graph.edges()):
-    #     # print('edge',edge)
-    #     if np.random.rand()>p:
-    #         graph.remove_edge(edge[0],edge[1])
+    # remove_edges(graphs_lists)
 
     ### dataset initialization
     if "nobfs" in args.note:

@@ -1,25 +1,18 @@
-import networkx as nx
-import numpy as np
-import torch
-import torch.nn as nn
-import torch.nn.init as init
-from torch.autograd import Variable
-import matplotlib.pyplot as plt
-import torch.nn.functional as F
-from torch import optim
-from torch.optim.lr_scheduler import MultiStepLR
-
-# import node2vec.src.main as nv
-from sklearn.decomposition import PCA
-import community
 import pickle
 import re
+import random
 
-import data
+import networkx as nx
+import numpy as np
+import matplotlib.pyplot as plt
+import community
 
+from typing import List
+
+from data import Graph_load, Graph_load_batch
 
 def citeseer_ego():
-    _, _, G = data.Graph_load(dataset="citeseer")
+    _, _, G = Graph_load(dataset="citeseer")
     G = max(nx.connected_component_subgraphs(G), key=len)
     G = nx.convert_node_labels_to_integers(G)
     graphs = []
@@ -71,12 +64,15 @@ def n_community(c_sizes, p_inter=0.01):
 
 
 def perturb(graph_list, p_del, p_add=None):
-    """ Perturb the list of graphs by adding/removing edges.
-    Args:
+    """
+    Perturb the list of graphs by adding/removing edges.
+    Parameters
+    ----------
         p_add: probability of adding edges. If None, estimate it according to graph density,
             such that the expected number of added edges is equal to that of deleted edges.
         p_del: probability of removing edges
-    Returns:
+    Returns
+    -------
         A list of graphs that are perturbed from the original graphs
     """
     perturbed_graph_list = []
@@ -115,7 +111,7 @@ def perturb(graph_list, p_del, p_add=None):
 
 
 def perturb_new(graph_list, p):
-    """ Perturb the list of graphs by adding/removing edges.
+    """Perturb the list of graphs by adding/removing edges.
     Args:
         p_add: probability of adding edges. If None, estimate it according to graph density,
             such that the expected number of added edges is equal to that of deleted edges.
@@ -174,64 +170,14 @@ def save_prediction_histogram(y_pred_data, fname_pred, max_num_node, bin_n=20):
 
 # draw a single graph G
 def draw_graph(G, prefix="test"):
-    parts = community.best_partition(G)
-    values = [parts.get(node) for node in G.nodes()]
-    colors = []
-    for i in range(len(values)):
-        if values[i] == 0:
-            colors.append("red")
-        if values[i] == 1:
-            colors.append("green")
-        if values[i] == 2:
-            colors.append("blue")
-        if values[i] == 3:
-            colors.append("yellow")
-        if values[i] == 4:
-            colors.append("orange")
-        if values[i] == 5:
-            colors.append("pink")
-        if values[i] == 6:
-            colors.append("black")
 
-    # spring_pos = nx.spring_layout(G)
-    plt.switch_backend("agg")
     plt.axis("off")
-
-    pos = nx.spring_layout(G)
-    nx.draw_networkx(G, with_labels=True, node_size=35, node_color=colors, pos=pos)
-
-    # plt.switch_backend('agg')
-    # options = {
-    #     'node_color': 'black',
-    #     'node_size': 10,
-    #     'width': 1
-    # }
-    # plt.figure()
-    # plt.subplot()
-    # nx.draw_networkx(G, **options)
-    plt.savefig("figures/graph_view_" + prefix + ".png", dpi=200)
+    pos = nx.get_node_attributes(G, "pos")
+    if not pos:  
+        pos = nx.spring_layout(G)
+    nx.draw_networkx(G, with_labels=False, node_size=10, width=2, pos=pos)
+    plt.savefig(f"figures/graph_view_{prefix}.pdf", bbox_inches="tight")
     plt.close()
-
-    plt.switch_backend("agg")
-    G_deg = nx.degree_histogram(G)
-    G_deg = np.array(G_deg)
-    # plt.plot(range(len(G_deg)), G_deg, 'r', linewidth = 2)
-    plt.loglog(np.arange(len(G_deg))[G_deg > 0], G_deg[G_deg > 0], "r", linewidth=2)
-    plt.savefig("figures/degree_view_" + prefix + ".png", dpi=200)
-    plt.close()
-
-    # degree_sequence = sorted(nx.degree(G).values(), reverse=True)  # degree sequence
-    # plt.loglog(degree_sequence, 'b-', marker='o')
-    # plt.title("Degree rank plot")
-    # plt.ylabel("degree")
-    # plt.xlabel("rank")
-    # plt.savefig('figures/degree_view_' + prefix + '.png', dpi=200)
-    # plt.close()
-
-
-# G = nx.grid_2d_graph(8,8)
-# G = nx.karate_club_graph()
-# draw_graph(G)
 
 
 # draw a list of graphs [G]
@@ -254,31 +200,6 @@ def draw_graph_list(
     for i, G in enumerate(G_list):
         plt.subplot(row, col, i + 1)
         plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
-        # if i%2==0:
-        #     plt.title('real nodes: '+str(G.number_of_nodes()), fontsize = 4)
-        # else:
-        #     plt.title('pred nodes: '+str(G.number_of_nodes()), fontsize = 4)
-
-        # plt.title('num of nodes: '+str(G.number_of_nodes()), fontsize = 4)
-
-        # parts = community.best_partition(G)
-        # values = [parts.get(node) for node in G.nodes()]
-        # colors = []
-        # for i in range(len(values)):
-        #     if values[i] == 0:
-        #         colors.append('red')
-        #     if values[i] == 1:
-        #         colors.append('green')
-        #     if values[i] == 2:
-        #         colors.append('blue')
-        #     if values[i] == 3:
-        #         colors.append('yellow')
-        #     if values[i] == 4:
-        #         colors.append('orange')
-        #     if values[i] == 5:
-        #         colors.append('pink')
-        #     if values[i] == 6:
-        #         colors.append('black')
         plt.axis("off")
         if layout == "spring":
             pos = nx.spring_layout(
@@ -288,8 +209,6 @@ def draw_graph_list(
 
         elif layout == "spectral":
             pos = nx.spectral_layout(G)
-        # # nx.draw_networkx(G, with_labels=True, node_size=2, width=0.15, font_size = 1.5, node_color=colors,pos=pos)
-        # nx.draw_networkx(G, with_labels=False, node_size=1.5, width=0.2, font_size = 1.5, linewidths=0.2, node_color = 'k',pos=pos,alpha=0.2)
 
         if is_single:
             # node_size default 60, edge_width default 1.5
@@ -315,144 +234,9 @@ def draw_graph_list(
             )
             nx.draw_networkx_edges(G, pos, alpha=0.3, width=0.2)
 
-        # plt.axis('off')
-        # plt.title('Complete Graph of Odd-degree Nodes')
-        # plt.show()
     plt.tight_layout()
     plt.savefig(fname + ".png", dpi=600)
     plt.close()
-
-    # # draw degree distribution
-    # plt.switch_backend('agg')
-    # for i, G in enumerate(G_list):
-    #     plt.subplot(row, col, i + 1)
-    #     G_deg = np.array(list(G.degree(G.nodes()).values()))
-    #     bins = np.arange(20)
-    #     plt.hist(np.array(G_deg), bins=bins, align='left')
-    #     plt.xlabel('degree', fontsize = 3)
-    #     plt.ylabel('count', fontsize = 3)
-    #     G_deg_mean = 2*G.number_of_edges()/float(G.number_of_nodes())
-    #     # if i % 2 == 0:
-    #     #     plt.title('real average degree: {:.2f}'.format(G_deg_mean), fontsize=4)
-    #     # else:
-    #     #     plt.title('pred average degree: {:.2f}'.format(G_deg_mean), fontsize=4)
-    #     plt.title('average degree: {:.2f}'.format(G_deg_mean), fontsize=4)
-    #     plt.tick_params(axis='both', which='major', labelsize=3)
-    #     plt.tick_params(axis='both', which='minor', labelsize=3)
-    # plt.tight_layout()
-    # plt.savefig(fname+'_degree.png', dpi=600)
-    # plt.close()
-    #
-    # # draw clustering distribution
-    # plt.switch_backend('agg')
-    # for i, G in enumerate(G_list):
-    #     plt.subplot(row, col, i + 1)
-    #     G_cluster = list(nx.clustering(G).values())
-    #     bins = np.linspace(0,1,20)
-    #     plt.hist(np.array(G_cluster), bins=bins, align='left')
-    #     plt.xlabel('clustering coefficient', fontsize=3)
-    #     plt.ylabel('count', fontsize=3)
-    #     G_cluster_mean = sum(G_cluster) / len(G_cluster)
-    #     # if i % 2 == 0:
-    #     #     plt.title('real average clustering: {:.4f}'.format(G_cluster_mean), fontsize=4)
-    #     # else:
-    #     #     plt.title('pred average clustering: {:.4f}'.format(G_cluster_mean), fontsize=4)
-    #     plt.title('average clustering: {:.4f}'.format(G_cluster_mean), fontsize=4)
-    #     plt.tick_params(axis='both', which='major', labelsize=3)
-    #     plt.tick_params(axis='both', which='minor', labelsize=3)
-    # plt.tight_layout()
-    # plt.savefig(fname+'_clustering.png', dpi=600)
-    # plt.close()
-    #
-    # # draw circle distribution
-    # plt.switch_backend('agg')
-    # for i, G in enumerate(G_list):
-    #     plt.subplot(row, col, i + 1)
-    #     cycle_len = []
-    #     cycle_all = nx.cycle_basis(G)
-    #     for item in cycle_all:
-    #         cycle_len.append(len(item))
-    #
-    #     bins = np.arange(20)
-    #     plt.hist(np.array(cycle_len), bins=bins, align='left')
-    #     plt.xlabel('cycle length', fontsize=3)
-    #     plt.ylabel('count', fontsize=3)
-    #     G_cycle_mean = 0
-    #     if len(cycle_len)>0:
-    #         G_cycle_mean = sum(cycle_len) / len(cycle_len)
-    #     # if i % 2 == 0:
-    #     #     plt.title('real average cycle: {:.4f}'.format(G_cycle_mean), fontsize=4)
-    #     # else:
-    #     #     plt.title('pred average cycle: {:.4f}'.format(G_cycle_mean), fontsize=4)
-    #     plt.title('average cycle: {:.4f}'.format(G_cycle_mean), fontsize=4)
-    #     plt.tick_params(axis='both', which='major', labelsize=3)
-    #     plt.tick_params(axis='both', which='minor', labelsize=3)
-    # plt.tight_layout()
-    # plt.savefig(fname+'_cycle.png', dpi=600)
-    # plt.close()
-    #
-    # # draw community distribution
-    # plt.switch_backend('agg')
-    # for i, G in enumerate(G_list):
-    #     plt.subplot(row, col, i + 1)
-    #     parts = community.best_partition(G)
-    #     values = np.array([parts.get(node) for node in G.nodes()])
-    #     counts = np.sort(np.bincount(values)[::-1])
-    #     pos = np.arange(len(counts))
-    #     plt.bar(pos,counts,align = 'edge')
-    #     plt.xlabel('community ID', fontsize=3)
-    #     plt.ylabel('count', fontsize=3)
-    #     G_community_count = len(counts)
-    #     # if i % 2 == 0:
-    #     #     plt.title('real average clustering: {}'.format(G_community_count), fontsize=4)
-    #     # else:
-    #     #     plt.title('pred average clustering: {}'.format(G_community_count), fontsize=4)
-    #     plt.title('average clustering: {}'.format(G_community_count), fontsize=4)
-    #     plt.tick_params(axis='both', which='major', labelsize=3)
-    #     plt.tick_params(axis='both', which='minor', labelsize=3)
-    # plt.tight_layout()
-    # plt.savefig(fname+'_community.png', dpi=600)
-    # plt.close()
-
-    # plt.switch_backend('agg')
-    # G_deg = nx.degree_histogram(G)
-    # G_deg = np.array(G_deg)
-    # # plt.plot(range(len(G_deg)), G_deg, 'r', linewidth = 2)
-    # plt.loglog(np.arange(len(G_deg))[G_deg>0], G_deg[G_deg>0], 'r', linewidth=2)
-    # plt.savefig('figures/degree_view_' + prefix + '.png', dpi=200)
-    # plt.close()
-
-    # degree_sequence = sorted(nx.degree(G).values(), reverse=True)  # degree sequence
-    # plt.loglog(degree_sequence, 'b-', marker='o')
-    # plt.title("Degree rank plot")
-    # plt.ylabel("degree")
-    # plt.xlabel("rank")
-    # plt.savefig('figures/degree_view_' + prefix + '.png', dpi=200)
-    # plt.close()
-
-
-# directly get graph statistics from adj, obsoleted
-def decode_graph(adj, prefix):
-    adj = np.asmatrix(adj)
-    G = nx.from_numpy_matrix(adj)
-    # G.remove_nodes_from(nx.isolates(G))
-    print("num of nodes: {}".format(G.number_of_nodes()))
-    print("num of edges: {}".format(G.number_of_edges()))
-    G_deg = nx.degree_histogram(G)
-    G_deg_sum = [a * b for a, b in zip(G_deg, range(0, len(G_deg)))]
-    print("average degree: {}".format(sum(G_deg_sum) / G.number_of_nodes()))
-    if nx.is_connected(G):
-        print("average path length: {}".format(nx.average_shortest_path_length(G)))
-        print("average diameter: {}".format(nx.diameter(G)))
-    G_cluster = sorted(list(nx.clustering(G).values()))
-    print("average clustering coefficient: {}".format(sum(G_cluster) / len(G_cluster)))
-    cycle_len = []
-    cycle_all = nx.cycle_basis(G, 0)
-    for item in cycle_all:
-        cycle_len.append(len(item))
-    print("cycles", cycle_len)
-    print("cycle count", len(cycle_len))
-    draw_graph(G, prefix=prefix)
 
 
 def get_graph(adj):
@@ -469,24 +253,40 @@ def get_graph(adj):
     return G
 
 
-# save a list of graphs
-def save_graph_list(G_list, fname):
+def save_graph_list(G_list: List[nx.Graph], fname: str) -> None:
+    """
+    save a list of graphs
+    Parameters
+    ----------
+        G_list: The list of graphs to save
+        fname: the filename to save to as a pickle file
+    Returns
+    -------
+        None
+    """
     with open(fname, "wb") as f:
         pickle.dump(G_list, f)
 
 
-# pick the first connected component
-def pick_connected_component(G):
+def pick_connected_component(G: nx.Graph) -> nx.Graph:
+    """
+    pick the first connected component
+    Parameters
+    ----------
+        G_list: The graph to get the first connected component from
+    Returns
+    -------
+        subgraph: the first connected component
+    """
     node_list = nx.node_connected_component(G, 0)
     return G.subgraph(node_list)
 
 
 def pick_connected_component_new(G):
     adj_list = G.adjacency_list()
-    for id, adj in enumerate(adj_list):
-        id_min = min(adj)
-        if id < id_min and id >= 1:
-            # if id<id_min and id>=4:
+    for idx, adj in enumerate(adj_list):
+        idx_min = min(adj)
+        if idx < idx_min and idx >= 1:
             break
     node_list = list(range(id))  # only include node prior than node "id"
     G = G.subgraph(node_list)
@@ -519,7 +319,7 @@ def export_graphs_to_txt(g_list, output_filename_prefix):
         for (u, v) in G.edges():
             idx_u = G.nodes().index(u)
             idx_v = G.nodes().index(v)
-            f.write(str(idx_u) + "\t" + str(idx_v) + "\n")
+            f.write(f"{idx_u}\t{idx_v}\n")
         i += 1
 
 
@@ -539,7 +339,6 @@ def snap_txt_output_to_nx(in_fname):
 
 
 def test_perturbed():
-
     graphs = []
     for i in range(100, 101):
         for j in range(4, 5):
@@ -549,7 +348,20 @@ def test_perturbed():
     print([g.number_of_edges() for g in graphs])
     print([g.number_of_edges() for g in g_perturbed])
 
-
+def test_graph_load_DD():
+    graphs, max_num_nodes = Graph_load_batch(
+        min_num_nodes=10, name="DD", node_attributes=False, graph_labels=True
+    )
+    random.shuffle(graphs)
+    plt.switch_backend("agg")
+    plt.hist([len(graphs[i]) for i in range(len(graphs))], bins=100)
+    plt.savefig("figures/test.png")
+    plt.close()
+    row = 4
+    col = 4
+    draw_graph_list(graphs[0 : row * col], row=row, col=col, fname="figures/test")
+    print("max num nodes", max_num_nodes)
+    
 if __name__ == "__main__":
     # test_perturbed()
     # graphs = load_graph_list('graphs/' + 'GraphRNN_RNN_community4_4_128_train_0.dat')

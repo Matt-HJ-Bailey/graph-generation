@@ -1,14 +1,20 @@
 import argparse
-import numpy as np
 import os
 import re
-from random import shuffle
+import random
+from datetime import datetime
 
+import numpy as np
+import networkx as nx
 import eval.stats
 import utils
 
+import logging
+import Args
+from utils import perturb, caveman_special
+from model import Graph_generator_baseline
 # import main.Args
-from baselines.baseline_simple import *
+# from baselines.baseline_simple import *
 
 
 class Args_evaluate:
@@ -77,8 +83,8 @@ def eval_list(real_graphs_filename, pred_graphs_filename, prefix, eval_every):
         for epochs in sorted(real_graphs_dict[result_id]):
             real_g_list = utils.load_graph_list(real_graphs_dict[result_id][epochs])
             pred_g_list = utils.load_graph_list(pred_graphs_dict[result_id][epochs])
-            shuffle(real_g_list)
-            shuffle(pred_g_list)
+            random.shuffle(real_g_list)
+            random.shuffle(pred_g_list)
             perturbed_g_list = perturb(real_g_list, 0.05)
 
             # dist = eval.stats.degree_stats(real_g_list, pred_g_list)
@@ -109,11 +115,11 @@ def compute_basic_stats(real_g_list, target_g_list):
 
 
 def clean_graphs(graph_real, graph_pred):
-    """ Selecting graphs generated that have the similar sizes.
+    """Selecting graphs generated that have the similar sizes.
     It is usually necessary for GraphRNN-S version, but not the full GraphRNN model.
     """
-    shuffle(graph_real)
-    shuffle(graph_pred)
+    random.shuffle(graph_real)
+    random.shuffle(graph_pred)
 
     # get length
     real_graph_len = np.array([len(graph_real[i]) for i in range(len(graph_real))])
@@ -132,8 +138,7 @@ def clean_graphs(graph_real, graph_pred):
 
 
 def load_ground_truth(dir_input, dataset_name, model_name="GraphRNN_RNN"):
-    """ Read ground truth graphs.
-    """
+    """Read ground truth graphs."""
     if not "small" in dataset_name:
         hidden = 128
     else:
@@ -181,7 +186,7 @@ def load_ground_truth(dir_input, dataset_name, model_name="GraphRNN_RNN"):
 
 
 def eval_single_list(graphs, dir_input, dataset_name):
-    """ Evaluate a list of graphs by comparing with graphs in directory dir_input.
+    """Evaluate a list of graphs by comparing with graphs in directory dir_input.
     Args:
         dir_input: directory where ground truth graph list is stored
         dataset_name: name of the dataset (ground truth)
@@ -322,7 +327,7 @@ def evaluation_epoch(
                     if is_clean:
                         graph_test, graph_pred = clean_graphs(graph_test, graph_pred)
                     else:
-                        shuffle(graph_pred)
+                        random.shuffle(graph_pred)
                         graph_pred = graph_pred[0 : len(graph_test)]
                     print("len graph_test", len(graph_test))
                     print("len graph_validate", len(graph_validate))
@@ -546,7 +551,7 @@ def evaluation_epoch(
                 if is_clean:
                     graph_test, graph_pred = clean_graphs(graph_test, graph_pred)
                 else:
-                    shuffle(graph_pred)
+                    random.shuffle(graph_pred)
                     graph_pred = graph_pred[0 : len(graph_test)]
                 print("len graph_test", len(graph_test))
                 print("len graph_validate", len(graph_validate))
@@ -618,8 +623,7 @@ def evaluation(
     args,
     overwrite=True,
 ):
-    """ Evaluate the performance of a set of models on a set of datasets.
-    """
+    """Evaluate the performance of a set of models on a set of datasets."""
     for model_name in model_name_all:
         for dataset_name in dataset_name_all:
             # check output exist
@@ -657,7 +661,7 @@ def eval_list_fname(
     epoch_range=None,
     out_file_prefix=None,
 ):
-    """ Evaluate list of predicted graphs compared to ground truth, stored in files.
+    """Evaluate list of predicted graphs compared to ground truth, stored in files.
     Args:
         baselines: dict mapping name of the baseline to list of generated graphs.
     """
@@ -699,8 +703,8 @@ def eval_list_fname(
         if len(real_g_list) > 200:
             real_g_list = real_g_list[0:200]
 
-        shuffle(real_g_list)
-        shuffle(pred_g_list_raw)
+        random.shuffle(real_g_list)
+        random.shuffle(pred_g_list_raw)
 
         # get length
         real_g_len_list = np.array(
@@ -991,7 +995,7 @@ if __name__ == "__main__":
     # dir_prefix = "/dfs/scratch0/jiaxuany0/"
     dir_prefix = args.dir_input
 
-    time_now = strftime("%Y-%m-%d %H:%M:%S", gmtime())
+    time_now = datetime.now().strftime("%Y-%m-%d %H-%M-%S")
     if not os.path.isdir("logs/"):
         os.makedirs("logs/")
     logging.basicConfig(
@@ -1027,7 +1031,7 @@ if __name__ == "__main__":
             utils.export_graphs_to_txt(graphs, output_prefix)
         else:
             # load from directory
-            input_path = dir_prefix + real_graph_filename
+            input_path = dir_prefix +args.graph_save_path + args.fname_test + "0.dat"
             g_list = utils.load_graph_list(input_path)
             utils.export_graphs_to_txt(g_list, output_prefix)
     elif not prog_args.kron_dir == "":

@@ -1,6 +1,5 @@
 import torch
-import numpy as np
-import time
+from datetime import datetime
 
 
 def compute_kernel(x, y):
@@ -16,41 +15,18 @@ def compute_kernel(x, y):
 
 def compute_mmd(x, y):
     x_kernel = compute_kernel(x, x)
-    # print(x_kernel)
     y_kernel = compute_kernel(y, y)
-    # print(y_kernel)
     xy_kernel = compute_kernel(x, y)
-    # print(xy_kernel)
     return torch.mean(x_kernel) + torch.mean(y_kernel) - 2 * torch.mean(xy_kernel)
 
 
-# start = time.time()
-# x = torch.randn(4000,1).cuda()
-# y = torch.randn(4000,1).cuda()
-# print(compute_mmd(x,y))
-# end = time.time()
-# print('GPU time:', end-start)
+if __name__ == "__main__":
+    torch.manual_seed(123)
+    batch = 1000
+    x = torch.randn(batch, 1)
+    y_baseline = torch.randn(batch, 1)
+    y_pred = torch.zeros(batch, 1)
+    
+    print("MMD baseline", compute_mmd(x, y_baseline))
+    print("MMD prediction", compute_mmd(x, y_pred))
 
-
-start = time.time()
-torch.manual_seed(123)
-batch = 1000
-x = torch.randn(batch, 1)
-y_baseline = torch.randn(batch, 1)
-y_pred = torch.zeros(batch, 1)
-
-print("MMD baseline", compute_mmd(x, y_baseline))
-print("MMD prediction", compute_mmd(x, y_pred))
-
-
-#
-# print('before',x)
-# print('MMD', compute_mmd(x,y))
-# x_idx = np.random.permutation(x.size(0))
-# x = x[x_idx,:]
-# print('after permutation',x)
-# print('MMD', compute_mmd(x,y))
-#
-#
-# end = time.time()
-# print('CPU time:', end-start)

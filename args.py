@@ -1,4 +1,11 @@
-### program configuration
+"""
+Program configuration
+"""
+
+import os
+
+VALID_NOTES = {"GraphRNN_MLP", "GraphRNN_MLP_nobfs", "GraphRNN_RNN_nobfs", "GraphRNN_VAE_conditional"}
+
 class Args:
     def __init__(self):
         ### if clean tensorboard
@@ -10,7 +17,7 @@ class Args:
         # The simple version of Graph RNN
         # self.note = 'GraphRNN_MLP'
         # The dependent Bernoulli sequence version of GraphRNN
-        self.note = "GraphRNN_RNN"
+        self.note = "GraphRNN_VAE_conditional"
 
         ## for comparison, removing the BFS compoenent
         # self.note = 'GraphRNN_MLP_nobfs'
@@ -22,7 +29,7 @@ class Args:
         # self.graph_type = 'caveman_small'
         # self.graph_type = 'caveman_small_single'
         # self.graph_type = 'community4'
-        self.graph_type = "grid"
+        # self.graph_type = "grid"
         # self.graph_type = 'grid_small'
         # self.graph_type = 'ladder_small'
 
@@ -34,6 +41,7 @@ class Args:
         # self.graph_type = 'citeseer_small'
 
         # self.graph_type = 'barabasi_noise'
+        self.graph_type = "ring_graphs"
         # self.noise = 10
         #
         # if self.graph_type == 'barabasi_noise':
@@ -68,10 +76,10 @@ class Args:
 
         ### training config
         self.num_workers = 4  # num workers to load data, default 4
-        self.batch_ratio = 32  # how many batches of samples per epoch, default 32, e.g., 1 epoch = 32 batches
-        self.epochs = 3000  # now one epoch means self.batch_ratio x batch_size
-        self.epochs_test_start = 100
-        self.epochs_test = 100
+        self.batch_ratio = 8  # how many batches of samples per epoch, default 32, e.g., 1 epoch = 32 batches
+        self.epochs = 250  # now one epoch means self.batch_ratio x batch_size
+        self.epochs_test_start = 10
+        self.epochs_test = 10
         self.epochs_log = 100
         self.epochs_save = 100
 
@@ -84,12 +92,12 @@ class Args:
         ### output config
         # self.dir_input = "/dfs/scratch0/jiaxuany0/"
         self.dir_input = "./"
-        self.model_save_path = self.dir_input + "model_save/"  # only for nll evaluation
-        self.graph_save_path = self.dir_input + "graphs/"
-        self.figure_save_path = self.dir_input + "figures/"
-        self.timing_save_path = self.dir_input + "timing/"
-        self.figure_prediction_save_path = self.dir_input + "figures_prediction/"
-        self.nll_save_path = self.dir_input + "nll/"
+        self.model_save_path = os.path.join(self.dir_input, "model_save")  # only for nll evaluation
+        self.graph_save_path = os.path.join(self.dir_input, "graphs")
+        self.figure_save_path = os.path.join(self.dir_input, "figures")
+        self.timing_save_path = os.path.join(self.dir_input, "timing")
+        self.figure_prediction_save_path = os.path.join(self.dir_input, "figures_prediction")
+        self.nll_save_path = os.path.join(self.dir_input, "nll")
 
         self.load = False  # if load model, default lr is very low
         self.load_epoch = 3000
@@ -125,24 +133,10 @@ class Args:
             + "_pred_"
         )
         self.fname_train = (
-            self.note
-            + "_"
-            + self.graph_type
-            + "_"
-            + str(self.num_layers)
-            + "_"
-            + str(self.hidden_size_rnn)
-            + "_train_"
+            f"{self.note}_{self.graph_type}_{self.num_layers}_{self.hidden_size_rnn}_train_"
         )
         self.fname_test = (
-            self.note
-            + "_"
-            + self.graph_type
-            + "_"
-            + str(self.num_layers)
-            + "_"
-            + str(self.hidden_size_rnn)
-            + "_test_"
+            f"{self.note}_{self.graph_type}_{self.num_layers}_{self.hidden_size_rnn}_test_"
         )
         self.fname_baseline = (
             self.graph_save_path
